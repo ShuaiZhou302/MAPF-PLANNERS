@@ -3,17 +3,18 @@ LACAM star without pibt "swap" version, IJCAI 2023
 initially from  Keisuke Okumura
 """
 
-
 import heapq
 import time
 from collections import deque
 import queue
 import numpy as np
 
+
 class Node:
     """
     Joint node of search process
     """
+
     def __init__(self, Config, parent, g, h, dis_set):
         # 因为每个node的config都是定的 就按照距离goal的目标来定顺序  到了goal的最后，没到的在前
         self.tree = queue.Queue()
@@ -29,7 +30,6 @@ class Node:
             dist = dis_set[i][Config[i][0]][Config[i][1]]
             self.order.append({"agent": i, "config": Config[i], "dist": dist})
         self.order.sort(key=lambda x: -x['dist'])
-
 
     def updateG(self, g, h):
         self.g = g
@@ -47,12 +47,14 @@ class Node:
     def __hash__(self) -> int:
         return self.config.__hash__()
 
+
 class Connode:
     """
     Constrain node for constrain tree
     actually, its more like a action tree
     """
-    def __init__(self,agent,config,parent):
+
+    def __init__(self, agent, config, parent):
         # the agent is set to be a specific value and it is not easy to
         self.agent = agent  # the agent serial number :agent的序号
         self.config = config  # agent 不准去的位置
@@ -62,8 +64,9 @@ class Connode:
         else:
             self.d = parent.d + 1
 
+
 class LaCAM:
-    def __init__(self,graph,start,goal,runtime):
+    def __init__(self, graph, start, goal, runtime):
         """
         This is a anytime algorithm, a runtime limit is required, otherwise you will have to wait to the end of 2*n
         that is what you are not gonna want.
@@ -75,31 +78,40 @@ class LaCAM:
         self.rng = np.random.default_rng(0)
         self._Open = deque([])
         self._Explored = {}
-        self.runtime = runtime
+        self._runtime = runtime
         self._ngoal = None
-        self._ninit = Node(start,None,0,self.h(start),self._dis_set)
+        self._ninit = Node(start, None, 0, self.h(start), self._dis_set)
         self._Open.append(self._ninit)
 
     def generate_distable(self):
         """
-        BFS based grid map value generator, BFS value is specified for its speed, and you can use A* but it will be
-        much more slow
+        Bfs based
+        set up the h value table and policy table for each agent to refer
+        Useful for joint node h value and policy
         """
-        dis_Set = []
-        for agent in range(len(self._start)):
+        # use BFS as the heuristic function value also the optimal policy for M*
+        dis_Table = []
+        policy_Table = []
+        for i in range(len(self._start)):
             tmp = deque()
-            tmp.append(self._goal[agent])
+            tmp.append(self._goal[i])
             inf = float('inf')
-            dist_table = [[inf for _ in range(self._graph.width)] for _ in range(self._graph.height)]  # 将距离表初始化为无穷大
-            dist_table[self._goal[agent][0]][self._goal[agent][1]] = 0  # 起始节点距离设为0
+            dist_table = [[inf for _ in range(self._graph.width)] for _ in range(self._graph.height)]  # initialize distance
+            #policy_table = [[None for _ in range(self._graph.width)] for _ in range(self._graph.height)]
+            dist_table[self._goal[i][0]][self._goal[i][1]] = 0  # set initial point distance to 0
+            #policy_table[self._goal[i][0]][self._goal[i][1]] = self._goal[i]  # set end point policy as itself
             while len(tmp) > 0:
                 curr = tmp.pop()
                 for neigh in self._graph.neighbors[curr]:
-                    if dist_table[neigh[0]][neigh[1]] > dist_table[curr[0]][curr[1]] + 1:  # 只要当前节点的距离加1更小，就更新邻居节点的距离
+                    if dist_table[neigh[0]][neigh[1]] > dist_table[curr[0]][curr[1]] + 1:  # update neighbour's distance
                         dist_table[neigh[0]][neigh[1]] = dist_table[curr[0]][curr[1]] + 1
+                        #policy_table[neigh[0]][neigh[1]] = curr  # map the policy of neigh to the optimal path for M*
                         tmp.append(neigh)
-            dis_Set.append(dist_table)
-        return dis_Set
+
+            dis_Table.append(dist_table)
+            #policy_Table.append(policy_table)
+
+        return dis_Table
 
     def h(self, config):
         cost = 0
@@ -202,14 +214,14 @@ class LaCAM:
         Qto[agent] = Qfrom[agent]
         return False
 
-    def cost(self,Qfrom, Qto):  # take tw0 nodes
+    def cost(self, Qfrom, Qto):  # take tw0 nodes
         cost = 0
         for i in range(len(Qfrom)):
             if not (self._goal[i] == Qfrom[i] == Qto[i]):
                 cost += 1
         return cost
 
-    def backtrack(self,Ngoal, path):
+    def backtrack(self, Ngoal, path):
         path.append(Ngoal)
         N_curr = Ngoal
         # print(Ngoal.g)
@@ -223,6 +235,10 @@ class LaCAM:
         start_time = time.time()
         while len(self._Open) > 0:
             node = self._Open[0]
+
+            #cut = time.time()
+            #if (cut - start_time) >= self._runtime:
+            #    break
 
             if self._ngoal is not None and node.config == self._goal:
                 self._ngoal = node
@@ -239,7 +255,7 @@ class LaCAM:
             if con.d < len(self._start):
                 self.low_level_expansion(node, con)
 
-            Qnew = self.configuration_generator(node,con)
+            Qnew = self.configuration_generator(node, con)
 
             if Qnew is None:
                 continue
@@ -248,21 +264,21 @@ class LaCAM:
                 node.neigh.add(n_known)
                 self._Open.appendleft(n_known)
                 D = []
-                heapq.heappush(D,(node.g,node))
+                heapq.heappush(D, (node.g, node))
 
-                while len(D) > 0 :
+                while len(D) > 0:
                     Nfrom_g, Nfrom = heapq.heappop(D)
                     for Nto in Nfrom.neigh:
                         g = Nfrom_g + self.cost(Nfrom.config, Nto.config)
                         if g < Nto.g:
-                           Nto.g = g
-                           Nto.f = Nto.g + self.h(Nto.config)
-                           Nto.parent = Nfrom
-                           heapq.heappush(D,(g,Nto))
-                           if self._ngoal is not None and Nto.f < self._ngoal.g:
-                               self._Open.appendleft(Nto)
+                            Nto.g = g
+                            Nto.f = Nto.g + self.h(Nto.config)
+                            Nto.parent = Nfrom
+                            heapq.heappush(D, (g, Nto))
+                            if self._ngoal is not None and Nto.f < self._ngoal.g:
+                                self._Open.appendleft(Nto)
             else:
-                Nnew = Node(Qnew, node, node.g + self.cost(node.config,Qnew),self.h(Qnew),self._dis_set)
+                Nnew = Node(Qnew, node, node.g + self.cost(node.config, Qnew), self.h(Qnew), self._dis_set)
                 self._Open.appendleft(Nnew)
                 self._Explored[Qnew] = Nnew
                 node.neigh.add(Nnew)
@@ -281,10 +297,19 @@ class LaCAM:
             print(self._ngoal.g)
             print(f"Runtime: {end_t - start_time}s")
         elif self._ngoal is not None:
+            end_t = time.time()
             path = []
             self.backtrack(self._ngoal, path)
+            path_visual = []
+            for i in range(len(path)):
+                path_visual.append(path[i].config)
+                set1 = set(path[i].config)
+                if len(set1) < len(path[i].config):
+                    print(f"Collision at {i}th config")
+            print(path_visual)
+            print(self._ngoal.g)
+            print(f"Runtime: {end_t - start_time}s")
         elif len(self._Open) == 0:
             print("No solution")
         else:
             print("You are such a failure")
-
