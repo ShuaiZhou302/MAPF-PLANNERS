@@ -50,35 +50,33 @@ def read_start_and_goal(file_path, n):
 
 
 class Graph:
-    def __init__(self, height, width, map):
-        """
-        A class represents the graph of the map
-        The map is a 2-d array as output of read_map_file functions
-        """
+    def __init__(self, height, width):
         self.height = height
         self.width = width
-        if map is None:
-            self.map = [[0 for _ in range(width)] for _ in range(height)]
-        else:
-            self.map = map
+        self.map = [[True] * width for _ in range(height)]
         self.start_points = []
         self.end_points = []
         self.neighbors = {}
-        self.set_neighbors()
+
+    def set_start_and_end(self, start_points, end_points):
+        self.start_points = start_points
+        self.end_points = end_points
 
     def set_neighbors(self):
         for i in range(self.height):
             for j in range(self.width):
                 neighbors = []
-                if i > 0 and self.map[i - 1][j] != 1:
+                if i > 0 and (self.map[i - 1][j] != '@' and self.map[i - 1][j] is not False):
                     neighbors.append((i - 1, j))
-                if i < self.height - 1 and self.map[i + 1][j] != 1:
+                if i < self.height - 1 and (self.map[i + 1][j] != '@' and self.map[i + 1][j] is not False):
                     neighbors.append((i + 1, j))
-                if j > 0 and self.map[i][j - 1] != 1:
+                if j > 0 and (self.map[i][j - 1] != '@' and self.map[i][j - 1] is not False):
                     neighbors.append((i, j - 1))
-                if j < self.width - 1 and self.map[i][j + 1] != 1:
+                if j < self.width - 1 and (self.map[i][j + 1] != '@' and self.map[i][j + 1] is not False):
                     neighbors.append((i, j + 1))
                 self.neighbors[(i, j)] = neighbors
+    def set_map(self,map):
+        self.map = map
 
 
 

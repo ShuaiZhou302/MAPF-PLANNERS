@@ -1,5 +1,6 @@
+from PLANNERS.CLASS_1.Mstar import m_star
 from PLANNERS.Library import Graph
-from PLANNERS.Mstar import m_star
+
 
 """
 A toy example
