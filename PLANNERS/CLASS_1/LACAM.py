@@ -81,7 +81,8 @@ class LaCAM:
         self._runtime = runtime
         self._ngoal = None
         self._ninit = Node(start, None, 0, self.h(start), self._dis_set)
-        self._Open.append(self._ninit)
+        self._Open.appendleft(self._ninit)
+        self._Explored[self._ninit.config] = self._ninit
 
     def generate_distable(self):
         """
@@ -236,11 +237,11 @@ class LaCAM:
         while len(self._Open) > 0:
             node = self._Open[0]
 
-            #cut = time.time()
-            #if (cut - start_time) >= self._runtime:
-            #    break
+            cut = time.time()
+            if (cut - start_time) >= self._runtime:
+                break
 
-            if self._ngoal is not None and node.config == self._goal:
+            if self._ngoal is None and node.config == self._goal:
                 self._ngoal = node
 
             if self._ngoal is not None and node.f >= self._ngoal.g:
